@@ -5,6 +5,7 @@ const ACTIONS = {
   MAKE_REQUEST: "make-request",
   GET_DATA: "get-data",
   ERROR: "error",
+  UPDATE_HAS_NEXT_PAGE: "update-has-next-page",
 };
 
 const BASE_URL =
@@ -23,6 +24,13 @@ function reducer(state, action) {
         error: action.payload.error,
         jobs: [],
       };
+    case ACTIONS.UPDATE_HAS_NEXT_PAGE:
+      return {
+        ...state,
+        hasNextPage: action.payload.hasNextPage,
+      };
+    default:
+      return state;
   }
 }
 
@@ -46,8 +54,27 @@ export default function useFetchJobs(params, page) {
         dispatch({ type: ACTIONS.ERROR, payload: { error: error } });
       });
 
+    const cancelToken1 = axios.CancelToken.source();
+
+    axios
+      .get(BASE_URL, {
+        cancelToken: cancelToken1.token,
+        params: { markdown: true, page: page + 1, ...params },
+      })
+      .then((res) => {
+        dispatch({
+          type: ACTIONS.UPDATE_HAS_NEXT_PAGE,
+          payload: { hasNextPage: res.data.length !== 0 },
+        });
+      })
+      .catch((error) => {
+        if (axios.isCancel(error)) return;
+        dispatch({ type: ACTIONS.ERROR, payload: { error: error } });
+      });
+
     return () => {
       cancelToken.cancel();
+      cancelToken1.cancel();
     };
   }, [params, page]);
 
